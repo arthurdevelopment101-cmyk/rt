@@ -8,6 +8,7 @@ const ORDERS_FILE = path.join(process.cwd(), "orders-db.json");
 const PROMOS_FILE = path.join(process.cwd(), "promos-db.json");
 const REWARDS_FILE = path.join(process.cwd(), "rewards-db.json");
 const CONFIG_FILE = path.join(process.cwd(), "db-config.json");
+const JSONBIN_CONFIG_FILE = path.join(process.cwd(), "jsonbin-config.json");
 
 export interface DbConfig {
   useRailwayDb: boolean;
@@ -18,6 +19,142 @@ const DEFAULT_CONFIG: DbConfig = {
   useRailwayDb: false,
   railwayUrl: "https://er-production-7d2a.up.railway.app"
 };
+
+export interface JsonBinConfig {
+  masterKey: string;
+  binId: string;
+  enabled: boolean;
+}
+
+const DEFAULT_JSONBIN_CONFIG: JsonBinConfig = {
+  masterKey: "",
+  binId: "",
+  enabled: false
+};
+
+export function getJsonBinConfig(): JsonBinConfig {
+  try {
+    if (fs.existsSync(JSONBIN_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(JSONBIN_CONFIG_FILE, "utf-8"));
+      return { ...DEFAULT_JSONBIN_CONFIG, ...data };
+    }
+  } catch (err) {
+    console.error("Error reading jsonbin-config.json:", err);
+  }
+  return DEFAULT_JSONBIN_CONFIG;
+}
+
+export function saveJsonBinConfig(config: JsonBinConfig) {
+  try {
+    fs.writeFileSync(JSONBIN_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error saving jsonbin-config.json:", err);
+  }
+}
+
+export async function createJsonBin(masterKey: string): Promise<string | null> {
+  const data = {
+    products: getProductsFromDisk(),
+    orders: getOrdersFromDisk(),
+    promos: getPromosFromDisk(),
+    rewards: getRewardsFromDisk()
+  };
+
+  try {
+    const res = await fetch("https://api.jsonbin.io/v3/b", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": masterKey,
+        "X-Bin-Name": "Vero_Accessories_Store_DB",
+        "X-Bin-Private": "true"
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+      throw new Error(`JSONBin creation returned status ${res.status}`);
+    }
+
+    const resJson: any = await res.json();
+    if (resJson && resJson.metadata && resJson.metadata.id) {
+      return resJson.metadata.id;
+    }
+  } catch (err) {
+    console.error("Error creating JSONBin:", err);
+  }
+  return null;
+}
+
+export async function pushToJsonBin(): Promise<boolean> {
+  const config = getJsonBinConfig();
+  if (!config.enabled || !config.masterKey || !config.binId) return false;
+
+  const data = {
+    products: getProductsFromDisk(),
+    orders: getOrdersFromDisk(),
+    promos: getPromosFromDisk(),
+    rewards: getRewardsFromDisk()
+  };
+
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${config.binId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": config.masterKey
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+      throw new Error(`JSONBin returned status ${res.status}`);
+    }
+    return true;
+  } catch (err) {
+    console.error("Error pushing to JSONBin:", err);
+    return false;
+  }
+}
+
+export async function pullFromJsonBin(): Promise<boolean> {
+  const config = getJsonBinConfig();
+  if (!config.enabled || !config.masterKey || !config.binId) return false;
+
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${config.binId}/latest`, {
+      method: "GET",
+      headers: {
+        "X-Master-Key": config.masterKey,
+        "X-Bin-Meta": "false"
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`JSONBin returned status ${res.status}`);
+    }
+
+    const data: any = await res.json();
+    if (data) {
+      if (Array.isArray(data.products)) {
+        fs.writeFileSync(DB_FILE, JSON.stringify(data.products, null, 2), "utf-8");
+      }
+      if (Array.isArray(data.orders)) {
+        fs.writeFileSync(ORDERS_FILE, JSON.stringify(data.orders, null, 2), "utf-8");
+      }
+      if (Array.isArray(data.promos)) {
+        fs.writeFileSync(PROMOS_FILE, JSON.stringify(data.promos, null, 2), "utf-8");
+      }
+      if (Array.isArray(data.rewards)) {
+        fs.writeFileSync(REWARDS_FILE, JSON.stringify(data.rewards, null, 2), "utf-8");
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error("Error pulling from JSONBin:", err);
+  }
+  return false;
+}
 
 export function getDbConfig(): DbConfig {
   try {
@@ -87,6 +224,7 @@ function getProductsFromDisk() {
 function saveProductsToDisk(products: any[]) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(products, null, 2), "utf-8");
+    pushToJsonBin().catch((err) => console.error("Auto-push to JSONBin failed:", err));
   } catch (err) {
     console.error("Error saving products database to disk:", err);
   }
@@ -108,6 +246,7 @@ function getOrdersFromDisk() {
 function saveOrdersToDisk(orders: any[]) {
   try {
     fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2), "utf-8");
+    pushToJsonBin().catch((err) => console.error("Auto-push to JSONBin failed:", err));
   } catch (err) {
     console.error("Error saving orders database to disk:", err);
   }
@@ -129,6 +268,7 @@ function getPromosFromDisk() {
 function savePromosToDisk(promos: any[]) {
   try {
     fs.writeFileSync(PROMOS_FILE, JSON.stringify(promos, null, 2), "utf-8");
+    pushToJsonBin().catch((err) => console.error("Auto-push to JSONBin failed:", err));
   } catch (err) {
     console.error("Error saving promos database to disk:", err);
   }
@@ -150,6 +290,7 @@ function getRewardsFromDisk() {
 function saveRewardsToDisk(rewards: any[]) {
   try {
     fs.writeFileSync(REWARDS_FILE, JSON.stringify(rewards, null, 2), "utf-8");
+    pushToJsonBin().catch((err) => console.error("Auto-push to JSONBin failed:", err));
   } catch (err) {
     console.error("Error saving rewards database to disk:", err);
   }
@@ -222,14 +363,15 @@ const RewardSchema = new Schema({
   titleEn: { type: String, required: true },
   description: { type: String },
   cost: { type: Number, required: true },
-  code: { type: String, required: true }
+  code: { type: String, required: true },
+  discountPercentage: { type: Number }
 }, { timestamps: true });
 
 const RewardModel = (mongoose.models.Reward || mongoose.model("Reward", RewardSchema)) as any;
 
 // Prevent unhandled mongoose connection errors from crashing the process
 mongoose.connection.on("error", (err) => {
-  console.error("Mongoose default connection error:", err);
+  // Silent in production or disabled mode
 });
 
 let isConnected = false;
@@ -238,96 +380,8 @@ let lastFailureTime = 0;
 const RETRY_COOLDOWN_MS = 60000; // 1-minute cooldown before retrying connection to prevent blocking API requests
 
 export async function connectDB(): Promise<boolean> {
-  if (isConnected) return true;
-  if (connectionPromise) return connectionPromise;
-
-  const now = Date.now();
-  if (now - lastFailureTime < RETRY_COOLDOWN_MS) {
-    // If the last connection attempt failed recently, immediately fall back to disk storage
-    // without blocking API routes with a 5-second timeout.
-    return false;
-  }
-
-  let mongoUri = process.env.MONGODB_URI;
-
-  if (!mongoUri || mongoUri === "1" || (!mongoUri.startsWith("mongodb://") && !mongoUri.startsWith("mongodb+srv://"))) {
-    console.log("MongoDB Connection: MONGODB_URI is not configured, is '1', or is invalid. Using disk storage fallback.");
-    return false;
-  }
-
-  // Trim and strip surrounding quotes
-  mongoUri = mongoUri.trim().replace(/^["']|["']$/g, "");
-
-  // If the password part contains surrounding angle brackets, strip them
-  const match = mongoUri.match(/^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)(@.+)$/);
-  if (match) {
-    const scheme = match[1];
-    const username = match[2];
-    let password = match[3];
-    const rest = match[4];
-    
-    // Check for leading/trailing angle brackets in the password
-    if (password.startsWith("<") && password.endsWith(">")) {
-      password = password.slice(1, -1);
-    }
-    mongoUri = `${scheme}${username}:${password}${rest}`;
-  }
-
-  if (mongoUri.includes("<db_password>")) {
-    console.log("MongoDB Connection: MONGODB_URI contains <db_password> placeholder. Using disk storage fallback.");
-    return false;
-  }
-
-  connectionPromise = (async () => {
-    try {
-      console.log("Attempting to connect to MongoDB...");
-      // Connect to MongoDB with timeout
-      await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000,
-      });
-      isConnected = true;
-      console.log("MongoDB connected successfully!");
-
-      // Seed database with products if it's empty
-      const count = await ProductModel.countDocuments();
-      if (count === 0) {
-        console.log("No products found in MongoDB. Seeding initial products...");
-        const diskProducts = getProductsFromDisk();
-        await ProductModel.insertMany(diskProducts);
-        console.log(`Seeded ${diskProducts.length} products to MongoDB.`);
-      }
-
-      // Seed database with promos if it's empty
-      const promoCount = await PromoModel.countDocuments();
-      if (promoCount === 0) {
-        console.log("No promo codes found in MongoDB. Seeding initial promo codes...");
-        const diskPromos = getPromosFromDisk();
-        await PromoModel.insertMany(diskPromos);
-        console.log(`Seeded ${diskPromos.length} promo codes to MongoDB.`);
-      }
-
-      // Seed database with rewards if it's empty
-      const rewardCount = await RewardModel.countDocuments();
-      if (rewardCount === 0) {
-        console.log("No rewards found in MongoDB. Seeding initial rewards...");
-        const diskRewards = getRewardsFromDisk();
-        if (diskRewards.length > 0) {
-          await RewardModel.insertMany(diskRewards);
-          console.log(`Seeded ${diskRewards.length} rewards to MongoDB.`);
-        }
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to connect to MongoDB, using disk storage fallback:", err);
-      isConnected = false;
-      lastFailureTime = Date.now();
-      return false;
-    } finally {
-      connectionPromise = null;
-    }
-  })();
-
-  return connectionPromise;
+  // MongoDB is disabled to avoid connection errors, forcing use of local disk storage.
+  return false;
 }
 
 // DB Manager implementing unified operations

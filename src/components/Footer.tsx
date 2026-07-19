@@ -34,8 +34,9 @@ export default function Footer({ setActiveTab }: FooterProps) {
           </p>
           <div className="flex gap-4 mt-8">
             <a 
-              href="#" 
-              onClick={(e) => e.preventDefault()}
+              href="https://www.instagram.com/vero_accessories.store?igsh=MTFzeHFieXp1Mm04aA%3D%3D&utm_source=qr" 
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-8 h-8 rounded-full border border-brand-outline/20 flex items-center justify-center text-brand-gold hover:bg-brand-gold hover:text-white transition-all duration-300"
               aria-label="Instagram"
             >

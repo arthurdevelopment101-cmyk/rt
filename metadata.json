@@ -1,6 +1,6 @@
 {
   "name": "Remix: Vero Accessories",
-  "description": "A curated high-end quiet luxury e-commerce experience for Vero Accessories.",
+  "description": "متجر فيرو لخامات واكسسوارات الإستانلس ستيل - ألواح، مواسير، وإكسسوارات عالية الجودة / High-quality Stainless Steel raw materials, sheets, pipes, and fittings.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

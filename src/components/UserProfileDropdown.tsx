@@ -453,8 +453,13 @@ export default function UserProfileDropdown({
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h6 className="font-serif text-[10.5px] font-bold text-brand-dark">
-                            {reward.title}
+                          <h6 className="font-serif text-[10.5px] font-bold text-brand-dark flex items-center gap-1.5 flex-wrap">
+                            <span>{reward.title}</span>
+                            {reward.discountPercentage !== undefined && (
+                              <span className="text-[7.5px] font-mono text-emerald-700 bg-emerald-500/10 px-1 py-0.2 rounded font-bold">
+                                {reward.discountPercentage}% OFF
+                              </span>
+                            )}
                           </h6>
                           <span className="text-[8px] font-sans text-brand-outline/70 block">
                             {reward.titleEn}

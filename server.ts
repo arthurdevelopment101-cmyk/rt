@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 
 // Import PRODUCTS directly
 import { PRODUCTS } from "./src/data.ts";
-import { DB, connectDB, getDbConfig, saveDbConfig } from "./src/lib/db.ts";
+import { DB, connectDB, getJsonBinConfig, saveJsonBinConfig, pushToJsonBin, pullFromJsonBin, createJsonBin } from "./src/lib/db.ts";
 
 // Dual ESM/CJS safe resolution of filename and directory
 const currentFilename = typeof __filename !== "undefined" 
@@ -329,69 +329,59 @@ app.delete("/api/rewards/:id", async (req, res) => {
   }
 });
 
-// API Routes - Database Sync & Remote Configurations
-app.get("/api/db-config", async (req, res) => {
+// JSONBin.io Integration API endpoints
+app.get("/api/jsonbin/config", (req, res) => {
+  res.json(getJsonBinConfig());
+});
+
+app.post("/api/jsonbin/config", async (req, res) => {
   try {
-    const config = getDbConfig();
-    const isMongo = DB.isMongoConnected();
-    
-    // Test connection to Railway DB
-    let isRailwayConnected = false;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const testRes = await fetch(`${config.railwayUrl.replace(/\/$/, "")}/api/products`, {
-        signal: controller.signal
-      });
-      isRailwayConnected = testRes.ok;
-      clearTimeout(timeoutId);
-    } catch (err) {
-      // Offline or errored
+    const { masterKey, binId, enabled } = req.body;
+    let finalBinId = binId;
+
+    if (enabled && masterKey && !finalBinId) {
+      // Auto-create bin if missing but key is provided
+      const createdId = await createJsonBin(masterKey);
+      if (createdId) {
+        finalBinId = createdId;
+      } else {
+        return res.status(400).json({ error: "Failed to automatically create a bin. Please verify your Master Key." });
+      }
     }
 
-    res.json({
-      config,
-      status: {
-        mongoConnected: isMongo,
-        railwayConnected: isRailwayConnected
-      }
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/db-config", async (req, res) => {
-  try {
-    const { useRailwayDb, railwayUrl } = req.body;
-    const current = getDbConfig();
-    const updated = {
-      useRailwayDb: typeof useRailwayDb === "boolean" ? useRailwayDb : current.useRailwayDb,
-      railwayUrl: typeof railwayUrl === "string" ? railwayUrl.trim() : current.railwayUrl
+    const newConfig = {
+      masterKey: masterKey || "",
+      binId: finalBinId || "",
+      enabled: !!enabled
     };
-    saveDbConfig(updated);
-    broadcastUpdate();
-    res.json({ success: true, config: updated });
+
+    saveJsonBinConfig(newConfig);
+
+    // If enabled, do an immediate pull to sync, or if empty, do a push
+    if (newConfig.enabled && newConfig.binId) {
+      const pulled = await pullFromJsonBin();
+      if (!pulled) {
+        // If pull failed (maybe new bin), push current local data to it
+        await pushToJsonBin();
+      }
+    }
+
+    res.json(newConfig);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/db-sync/pull", async (req, res) => {
+app.post("/api/jsonbin/sync", async (req, res) => {
   try {
-    const result = await (DB as any).pullFromRailway();
-    broadcastUpdate();
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/db-sync/push", async (req, res) => {
-  try {
-    const result = await (DB as any).pushToRailway();
-    broadcastUpdate();
-    res.json(result);
+    const { action } = req.body; // "pull" or "push"
+    if (action === "pull") {
+      const success = await pullFromJsonBin();
+      res.json({ success });
+    } else {
+      const success = await pushToJsonBin();
+      res.json({ success });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -401,6 +391,45 @@ app.post("/api/db-sync/push", async (req, res) => {
 async function initServer() {
   // Try connecting to MongoDB on startup (falls back gracefully)
   connectDB().catch((err) => console.error("Initial database connection error:", err));
+
+  // Sync with JSONBin on startup if enabled
+  const jsonBinConfig = getJsonBinConfig();
+  if (jsonBinConfig.enabled && jsonBinConfig.masterKey) {
+    if (!jsonBinConfig.binId) {
+      console.log("JSONBin integration enabled but no Bin ID found. Automatically creating a new cloud bin...");
+      createJsonBin(jsonBinConfig.masterKey)
+        .then((createdId) => {
+          if (createdId) {
+            console.log(`Successfully created a new JSONBin.io cloud bin: ${createdId}`);
+            saveJsonBinConfig({
+              ...jsonBinConfig,
+              binId: createdId
+            });
+            // Initial push
+            return pushToJsonBin();
+          } else {
+            console.error("Failed to automatically create a new JSONBin.io cloud bin.");
+          }
+        })
+        .then((success) => {
+          if (success) {
+            console.log("Initial push of catalog to the new JSONBin.io cloud bin completed successfully!");
+          }
+        })
+        .catch((err) => console.error("Error during JSONBin auto-provisioning:", err));
+    } else {
+      console.log("JSONBin integration enabled. Syncing data on startup...");
+      pullFromJsonBin()
+        .then((success) => {
+          if (success) {
+            console.log("Successfully synchronized local database with JSONBin.io cloud on boot!");
+          } else {
+            console.log("Could not pull from JSONBin.io on boot. Using local storage.");
+          }
+        })
+        .catch((err) => console.error("Error during JSONBin.io startup sync:", err));
+    }
+  }
 
   if (process.env.NODE_ENV !== "production") {
     const { createServer } = await import("vite");

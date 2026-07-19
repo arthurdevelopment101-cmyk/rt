@@ -91,5 +91,6 @@ export interface Reward {
   description: string;
   cost: number;
   code: string;
+  discountPercentage?: number;
 }
 

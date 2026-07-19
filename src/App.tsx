@@ -2451,57 +2451,236 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="max-w-4xl mx-auto px-6 py-12 space-y-16"
+              className="max-w-5xl mx-auto px-6 py-12 space-y-20"
             >
+              {/* Header Title Section */}
               <section className="text-center space-y-4">
                 <span className="text-brand-gold font-sans text-xs font-semibold tracking-[0.3em] uppercase block">
-                  ESTABLISHED 2024
+                  VERO ACCESSORIES
                 </span>
-                <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl text-brand-umber font-light">
+                <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl text-brand-dark font-light">
                   Our Story
                 </h1>
-                <p className="font-sans text-xs font-light text-brand-outline tracking-wider uppercase max-w-md mx-auto leading-relaxed">
-                  Timeless accessories forged in Florence, celebrating local artisan heritage.
-                </p>
-                <div className="w-12 h-px bg-brand-gold/40 mx-auto mt-6"></div>
+                <div className="w-16 h-px bg-brand-gold/50 mx-auto mt-6"></div>
               </section>
 
-              {/* Stories sections loop */}
-              {STORIES.map((story, index) => {
-                const isEven = index % 2 === 0;
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-center ${
-                      isEven ? "" : "md:flex-row-reverse"
-                    }`}
-                  >
-                    <div className={`space-y-6 ${isEven ? "" : "md:order-last"}`}>
-                      <h3 className="font-serif text-2xl text-brand-umber font-semibold tracking-wide">
-                        {story.title}
-                      </h3>
-                      <p className="font-serif italic text-xs md:text-sm text-brand-outline leading-relaxed border-l-2 border-brand-gold/30 pl-4 py-1">
-                        "{story.quote}"
-                      </p>
-                      <p className="font-sans text-xs font-light text-brand-outline leading-relaxed">
-                        Every single collection is built inside small Italian workshops, utilizing natural processes and centuries-old Roman techniques. Hand-finished for premium luxury definition.
-                      </p>
+              {/* 1. Our Story */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="bg-brand-linen/10 border border-[#c5a880]/20 rounded-lg p-8 md:p-12 space-y-8 relative overflow-hidden shadow-sm"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#c5a880]/5 rounded-full blur-3xl"></div>
+                <div className="relative space-y-6 text-left">
+                  <div className="flex justify-start items-center gap-2 text-brand-gold">
+                    <Sparkles className="w-5 h-5" />
+                    <h2 className="font-serif text-2xl font-bold tracking-wide">The Birth of VERO</h2>
+                  </div>
+                  
+                  <div className="space-y-4 text-brand-dark leading-relaxed">
+                    <p className="text-sm md:text-base font-medium">
+                      VERO started with a simple idea: that accessories should be more than just ordinary pieces, but a true expression of character, confidence, and everlasting elegance.
+                    </p>
+                    <p className="text-xs md:text-sm text-brand-outline font-light">
+                      Our passion drives us to deliver premium accessories and refined decorative details that beautifully bridge pristine modern aesthetics with high-grade industrial endurance. We curate every design to stand the test of time, ensuring our clients receive nothing less than perfection.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* 2 & 3. Our Mission & Vision */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Our Mission */}
+                <motion.div
+                  initial={{ opacity: 0, x: -15 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                  className="border border-brand-outline-variant/35 bg-white/40 backdrop-blur-sm rounded-lg p-8 space-y-4 flex flex-col justify-between hover:border-brand-gold/45 transition-colors duration-300"
+                >
+                  <div className="space-y-4 text-left">
+                    <div className="w-10 h-10 rounded-full bg-[#c5a880]/10 flex items-center justify-center text-brand-gold mb-4">
+                      <Sparkles className="w-5 h-5" />
                     </div>
-                    <div className="aspect-[4/3] bg-brand-surface-low overflow-hidden shadow-sm rounded-sm">
-                      <img
-                        src={story.image}
-                        alt={story.title}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
+                    <h3 className="font-serif text-lg font-bold text-brand-dark">Our Mission</h3>
+                    <p className="text-xs md:text-sm text-brand-dark leading-relaxed font-medium">
+                      We don’t just create accessories; we craft a luxurious experience that empowers every client with confidence in every single detail they wear.
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-brand-outline font-sans text-left pt-4 border-t border-[#c5a880]/10">
+                    Our focus is on premium craftsmanship, visual poetry, and authentic personal style, transforming everyday items into objects of enduring prestige.
+                  </p>
+                </motion.div>
+
+                {/* Our Vision */}
+                <motion.div
+                  initial={{ opacity: 0, x: 15 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                  className="border border-brand-outline-variant/35 bg-white/40 backdrop-blur-sm rounded-lg p-8 space-y-4 flex flex-col justify-between hover:border-brand-gold/45 transition-colors duration-300"
+                >
+                  <div className="space-y-4 text-left">
+                    <div className="w-10 h-10 rounded-full bg-[#c5a880]/10 flex items-center justify-center text-brand-gold mb-4">
+                      <Award className="w-5 h-5" />
                     </div>
-                  </motion.div>
-                );
-              })}
+                    <h3 className="font-serif text-lg font-bold text-brand-dark">Our Vision</h3>
+                    <p className="text-xs md:text-sm text-brand-dark leading-relaxed font-medium">
+                      To establish VERO as one of the preeminent and most trusted luxury accessory brands across the Middle East and globally.
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-brand-outline font-sans text-left pt-4 border-t border-[#c5a880]/10">
+                    We aspire to inspire confidence and luxury in every interaction, building a legacy of excellence and creative expression.
+                  </p>
+                </motion.div>
+              </div>
+
+              {/* 4. Our Values */}
+              <section className="space-y-8">
+                <div className="text-center space-y-2">
+                  <h3 className="font-serif text-2xl text-brand-dark font-light">Our Values</h3>
+                  <p className="text-xs text-brand-outline font-mono tracking-widest uppercase">The Pillars of Vero Accessories</p>
+                  <div className="w-12 h-px bg-brand-gold/30 mx-auto mt-2"></div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Quality First */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">01</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Quality First</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      We adhere to the highest standards of purity and strength to ensure perfect resilience and lasting beauty.
+                    </p>
+                  </div>
+
+                  {/* Trust */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">02</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Trust</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      We build solid, transparent partnerships with our customers through absolute honesty and precise commitment.
+                    </p>
+                  </div>
+
+                  {/* Luxury */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">03</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Luxury</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      Each piece carries a unique artistic touch that adds notable distinction and sophistication to your collection.
+                    </p>
+                  </div>
+
+                  {/* Innovation */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">04</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Innovation</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      We keep pace with the latest modern techniques and premium styles to provide advanced creative solutions.
+                    </p>
+                  </div>
+
+                  {/* Attention to Detail */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">05</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Attention to Detail</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      From the choice of grade-A materials to surface brilliance and flawless quality protection.
+                    </p>
+                  </div>
+
+                  {/* Customer Satisfaction */}
+                  <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-5 rounded-lg space-y-2 text-left">
+                    <span className="text-xs font-bold text-brand-gold font-mono block">06</span>
+                    <h4 className="text-xs font-bold text-brand-dark uppercase">Customer Satisfaction</h4>
+                    <p className="text-[11px] text-brand-outline leading-normal">
+                      The satisfaction of our valued clients is the true measure of our success and our constant drive to develop.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* 5. Why VERO? */}
+              <motion.section
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="bg-brand-dark text-white rounded-lg p-8 md:p-12 space-y-8 relative overflow-hidden shadow-xl"
+              >
+                {/* Decorative golden grid background */}
+                <div className="absolute inset-0 bg-[radial-gradient(#c5a880_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.04]"></div>
+
+                <div className="relative text-center space-y-2">
+                  <h3 className="font-serif text-2xl text-brand-gold font-light">Why Choose VERO?</h3>
+                  <p className="text-xs text-brand-linen/60 max-w-md mx-auto">We make the difference by meeting your needs with the highest level of mastery and excellence</p>
+                  <div className="w-12 h-px bg-brand-gold/50 mx-auto mt-2"></div>
+                </div>
+
+                <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4 text-left">
+                  {/* Quality Raw Materials */}
+                  <div className="p-4 bg-white/5 rounded border border-white/10 hover:border-brand-gold/30 transition-all">
+                    <div className="flex items-center justify-start gap-2.5 text-brand-gold mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs font-semibold font-sans">High Quality</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mb-1">Premium Materials</h4>
+                    <p className="text-[11px] text-brand-linen/75 leading-relaxed">
+                      We source the finest, purest grades of premium materials with protective layers to ensure eternal durability and beauty.
+                    </p>
+                  </div>
+
+                  {/* Modern Designs */}
+                  <div className="p-4 bg-white/5 rounded border border-white/10 hover:border-brand-gold/30 transition-all">
+                    <div className="flex items-center justify-start gap-2.5 text-brand-gold mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs font-semibold font-sans">Modern Designs</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mb-1">Contemporary Concepts</h4>
+                    <p className="text-[11px] text-brand-linen/75 leading-relaxed">
+                      A rich collection of contemporary structures and elegant accents that keep up with the latest fashion and luxury trends.
+                    </p>
+                  </div>
+
+                  {/* Premium Packaging */}
+                  <div className="p-4 bg-white/5 rounded border border-white/10 hover:border-brand-gold/30 transition-all">
+                    <div className="flex items-center justify-start gap-2.5 text-brand-gold mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs font-semibold font-sans">Premium Packaging</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mb-1">Luxury Packaging</h4>
+                    <p className="text-[11px] text-brand-linen/75 leading-relaxed">
+                      Every order is elegantly packaged and carefully secured to arrive in pristine condition, ready to surprise and delight.
+                    </p>
+                  </div>
+
+                  {/* Product Warranty */}
+                  <div className="p-4 bg-white/5 rounded border border-white/10 hover:border-brand-gold/30 transition-all">
+                    <div className="flex items-center justify-start gap-2.5 text-brand-gold mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs font-semibold font-sans">Product Warranty</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mb-1">Solid Guarantees</h4>
+                    <p className="text-[11px] text-brand-linen/75 leading-relaxed">
+                      We stand behind our quality with solid guarantees against manufacturing defects and wear, committed to instant resolution.
+                    </p>
+                  </div>
+
+                  {/* Professional Customer Service */}
+                  <div className="p-4 bg-white/5 rounded border border-white/10 hover:border-brand-gold/30 transition-all md:col-span-2 lg:col-span-1">
+                    <div className="flex items-center justify-start gap-2.5 text-brand-gold mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs font-semibold font-sans">Professional Support</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mb-1">Exceptional Care</h4>
+                    <p className="text-[11px] text-brand-linen/75 leading-relaxed">
+                      A dedicated support team is always ready to assist you and provide exceptional care before and after your purchase.
+                    </p>
+                  </div>
+                </div>
+              </motion.section>
             </motion.div>
           )}
 

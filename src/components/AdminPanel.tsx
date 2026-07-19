@@ -27,13 +27,16 @@ import {
   ExternalLink,
   Link2,
   Gift,
+  Database,
+  Cloud,
+  CloudDownload,
+  CloudUpload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Product, Order, PromoCode, Reward } from "../types";
 import { CATEGORIES } from "../data";
 import { googleSignIn, logout as googleLogout, initAuth } from "../lib/googleAuth";
 import { createOrdersSpreadsheet, appendOrdersToSheet, getSyncedOrderIds, SpreadsheetInfo } from "../lib/sheetsService";
-import DatabaseSyncView from "./DatabaseSyncView";
 
 interface AdminPanelProps {
   products: Product[];
@@ -84,7 +87,7 @@ export default function AdminPanel({
   rewards = [],
   setRewards,
 }: AdminPanelProps) {
-   const [activeSubTab, setActiveSubTab] = React.useState<"catalog" | "add" | "analytics" | "orders" | "rewards" | "promos" | "database">("orders");
+   const [activeSubTab, setActiveSubTab] = React.useState<"catalog" | "add" | "analytics" | "orders" | "rewards" | "promos" | "jsonbin">("orders");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
 
@@ -100,8 +103,113 @@ export default function AdminPanel({
   const [newRewardDescription, setNewRewardDescription] = React.useState("");
   const [newRewardCost, setNewRewardCost] = React.useState(100);
   const [newRewardCode, setNewRewardCode] = React.useState("");
+  const [newRewardDiscountPercentage, setNewRewardDiscountPercentage] = React.useState<number>(15);
   const [rewardSubmitting, setRewardSubmitting] = React.useState(false);
   const [rewardMsg, setRewardMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // JSONBin.io Cloud States
+  const [jsonBinKey, setJsonBinKey] = React.useState("");
+  const [jsonBinId, setJsonBinId] = React.useState("");
+  const [jsonBinEnabled, setJsonBinEnabled] = React.useState(false);
+  const [jsonBinLoading, setJsonBinLoading] = React.useState(false);
+  const [jsonBinSyncing, setJsonBinSyncing] = React.useState(false);
+  const [jsonBinMsg, setJsonBinMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [jsonBinLogs, setJsonBinLogs] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    fetch("/api/jsonbin/config")
+      .then((res) => res.json())
+      .then((config) => {
+        if (config) {
+          setJsonBinKey(config.masterKey || "");
+          setJsonBinId(config.binId || "");
+          setJsonBinEnabled(!!config.enabled);
+        }
+      })
+      .catch((err) => console.error("Error fetching JSONBin config:", err));
+  }, []);
+
+  const handleSaveJsonBinConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setJsonBinLoading(true);
+    setJsonBinMsg(null);
+    setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Saving configuration...`]);
+
+    try {
+      const res = await fetch("/api/jsonbin/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          masterKey: jsonBinKey,
+          binId: jsonBinId,
+          enabled: jsonBinEnabled
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Server responded with ${res.status}`);
+      }
+
+      const updated = await res.json();
+      setJsonBinKey(updated.masterKey || "");
+      setJsonBinId(updated.binId || "");
+      setJsonBinEnabled(!!updated.enabled);
+      setJsonBinMsg({ type: "success", text: "تم حفظ وتحديث إعدادات السحابة بنجاح! / Cloud configuration updated successfully!" });
+      setJsonBinLogs((prev) => [
+        ...prev, 
+        `[${new Date().toLocaleTimeString()}] Config saved successfully. Active Bin: ${updated.binId || "Auto-creating on save..."}`
+      ]);
+    } catch (err: any) {
+      setJsonBinMsg({ type: "error", text: `خطأ أثناء الحفظ: ${err.message}` });
+      setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${err.message}`]);
+    } finally {
+      setJsonBinLoading(false);
+    }
+  };
+
+  const handleJsonBinSync = async (action: "pull" | "push") => {
+    setJsonBinSyncing(true);
+    setJsonBinMsg(null);
+    const actionLabelAr = action === "pull" ? "تنزيل البيانات" : "رفع البيانات";
+    const actionLabelEn = action === "pull" ? "Pulling data" : "Pushing data";
+    setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Starting ${actionLabelEn}...`]);
+
+    try {
+      const res = await fetch("/api/jsonbin/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server responded with status ${res.status}`);
+      }
+
+      const result = await res.json();
+      if (result.success) {
+        setJsonBinMsg({ 
+          type: "success", 
+          text: `اكتملت عملية ${actionLabelAr} بنجاح! / Cloud ${action} completed successfully!` 
+        });
+        setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${action} finished successfully.`]);
+        
+        if (action === "pull") {
+          setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Reloading to apply synced data...`]);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        }
+      } else {
+        throw new Error("Synchronization reported unsuccessful status.");
+      }
+    } catch (err: any) {
+      setJsonBinMsg({ type: "error", text: `فشلت المزامنة: ${err.message}` });
+      setJsonBinLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Sync error: ${err.message}`]);
+    } finally {
+      setJsonBinSyncing(false);
+    }
+  };
 
   // Google Sheets Integration States
   const [googleUser, setGoogleUser] = React.useState<any>(null);
@@ -455,9 +563,10 @@ export default function AdminPanel({
     const description = newRewardDescription.trim();
     const cost = Number(newRewardCost);
     const code = newRewardCode.trim();
+    const discountPercentage = Number(newRewardDiscountPercentage);
 
-    if (!title || !titleEn || !code || isNaN(cost) || cost <= 0) {
-      setRewardMsg({ type: "error", text: "Please fill all required fields / الرجاء ملء جميع الحقول المطلوبة!" });
+    if (!title || !titleEn || !code || isNaN(cost) || cost <= 0 || isNaN(discountPercentage) || discountPercentage < 1 || discountPercentage > 100) {
+      setRewardMsg({ type: "error", text: "Please fill all required fields correctly / الرجاء ملء جميع الحقول المطلوبة بشكل صحيح!" });
       return;
     }
 
@@ -467,7 +576,7 @@ export default function AdminPanel({
         const res = await fetch("/api/rewards", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, titleEn, description, cost, code }),
+          body: JSON.stringify({ title, titleEn, description, cost, code, discountPercentage }),
         });
         if (res.ok) {
           const updatedRewards = await res.json();
@@ -479,6 +588,7 @@ export default function AdminPanel({
           setNewRewardDescription("");
           setNewRewardCost(100);
           setNewRewardCode("");
+          setNewRewardDiscountPercentage(15);
           setRewardMsg({ type: "success", text: `Reward "${titleEn}" created successfully / تم إنشاء الجائزة "${title}" بنجاح!` });
           triggerNotification(`Created reward: ${titleEn}`, "success");
         } else {
@@ -836,17 +946,17 @@ export default function AdminPanel({
           </button>
           <button
             onClick={() => {
-              setActiveSubTab("database");
+              setActiveSubTab("jsonbin");
               setEditingProduct(null);
             }}
             className={`px-4 py-1.5 text-xs font-semibold tracking-wider uppercase transition-all rounded-[2px] flex items-center gap-1.5 ${
-              activeSubTab === "database"
+              activeSubTab === "jsonbin"
                 ? "bg-brand-gold text-white"
                 : "text-brand-outline hover:text-brand-umber"
             }`}
           >
-            <Link2 className="w-3.5 h-3.5" />
-            <span>قاعدة البيانات / Railway DB</span>
+            <Database className="w-3.5 h-3.5" />
+            <span>JSONBin Cloud (السحابة)</span>
           </button>
         </div>
 
@@ -1935,7 +2045,7 @@ export default function AdminPanel({
                       </label>
                       <input
                         type="text"
-                        placeholder="مثال: خصم بقيمة 50 جنيه"
+                        placeholder="مثال: خصم 15% على الكتالوج"
                         value={newRewardTitle}
                         onChange={(e) => setNewRewardTitle(e.target.value)}
                         className="w-full bg-brand-linen/10 border border-brand-outline-variant/45 rounded-sm text-xs px-3 py-2.5 outline-none focus:border-brand-gold text-brand-umber font-light"
@@ -1950,12 +2060,32 @@ export default function AdminPanel({
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. 50 EGP Cash Discount Voucher"
+                        placeholder="e.g. 15% Catalog Discount Voucher"
                         value={newRewardTitleEn}
                         onChange={(e) => setNewRewardTitleEn(e.target.value)}
                         className="w-full bg-brand-linen/10 border border-brand-outline-variant/45 rounded-sm text-xs px-3 py-2.5 outline-none focus:border-brand-gold text-brand-umber font-light"
                         required
                       />
+                    </div>
+
+                    {/* Discount Percentage Selection */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wider font-semibold text-brand-umber block">
+                        نسبة الخصم للجائزة % / Reward Discount Percentage
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="1"
+                          max="100"
+                          value={newRewardDiscountPercentage}
+                          onChange={(e) => setNewRewardDiscountPercentage(Number(e.target.value))}
+                          className="flex-grow accent-brand-gold"
+                        />
+                        <span className="text-xs font-mono font-semibold text-brand-gold w-8 text-right">
+                          {newRewardDiscountPercentage}%
+                        </span>
+                      </div>
                     </div>
 
                     {/* Description */}
@@ -1994,7 +2124,7 @@ export default function AdminPanel({
                         </label>
                         <input
                           type="text"
-                          placeholder="VERO50EGP"
+                          placeholder="VERO15"
                           value={newRewardCode}
                           onChange={(e) => setNewRewardCode(e.target.value.toUpperCase())}
                           className="w-full bg-brand-linen/10 border border-brand-outline-variant/45 rounded-sm text-xs px-3 py-2.5 outline-none focus:border-brand-gold text-brand-umber font-mono uppercase"
@@ -2059,6 +2189,11 @@ export default function AdminPanel({
                                 <span className="text-[10px] font-mono text-brand-gold bg-[#c5a880]/10 px-1.5 py-0.5 rounded-sm">
                                   {reward.cost} PTS
                                 </span>
+                                {reward.discountPercentage !== undefined && (
+                                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm">
+                                    {reward.discountPercentage}% OFF
+                                  </span>
+                                )}
                               </div>
                               <p className="text-[10px] text-brand-outline font-mono uppercase">{reward.titleEn}</p>
                               {reward.description && (
@@ -2087,17 +2222,196 @@ export default function AdminPanel({
           </div>
         )}
 
-        {activeSubTab === "database" && (
-          <DatabaseSyncView
-            ordersCount={orders.length}
-            productsCount={products.length}
-            promosCount={promos.length}
-            rewardsCount={rewards.length}
-            triggerNotification={triggerNotification}
-            setProducts={setProducts}
-            setOrders={setOrders}
-            setPromos={setPromos}
-          />
+        {activeSubTab === "jsonbin" && (
+          <div className="space-y-8 animate-fadeIn text-left">
+            {/* Header / Intro */}
+            <div className="bg-brand-linen/10 border border-brand-outline-variant/20 p-6 rounded-sm space-y-2">
+              <div className="flex items-center gap-2">
+                <Cloud className="w-5 h-5 text-brand-gold" />
+                <h3 className="font-serif text-lg text-brand-umber font-normal">
+                  إعدادات السحابة الحية والنسخ الاحتياطي / Cloud Persistence & JSONBin.io Integration
+                </h3>
+              </div>
+              <p className="text-xs text-brand-outline font-light leading-relaxed max-w-3xl">
+                اربط متجر <strong>VERO Luxury Boutique</strong> بسحابة <strong>JSONBin.io</strong> لتخزين كتالوج المنتجات، الطلبات، الكوبونات والجوائز بأمان في السحابة. هذا يضمن حماية بيانات متجرك بالكامل وبقاءها حية عبر خوادم السحاب حتى لو تم إعادة تشغيل الخادم.
+                <br />
+                <span className="text-[10px] text-brand-gold font-mono block mt-1">
+                  Connect your boutique store with JSONBin.io cloud database. This synchronizes your catalog, order database, coupon codes, and loyalty reward tiers to a resilient cloud database that survives server restarts.
+                </span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column: Config Form */}
+              <div className="bg-[#fffdfb] border border-brand-outline-variant/25 p-6 rounded-sm shadow-sm space-y-6 h-fit">
+                <h4 className="font-serif text-md text-brand-umber font-medium border-b border-brand-outline-variant/10 pb-2 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-brand-gold" />
+                  <span>تكوين السحابة / Cloud Configuration</span>
+                </h4>
+
+                {jsonBinMsg && (
+                  <div className={`p-4 text-xs rounded-sm ${
+                    jsonBinMsg.type === "success" 
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200" 
+                      : "bg-rose-50 text-rose-800 border border-rose-200"
+                  }`}>
+                    {jsonBinMsg.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveJsonBinConfig} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-brand-umber block">
+                      المفتاح الرئيسي / Master Key *
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="e.g. $2a$10$..."
+                      value={jsonBinKey}
+                      onChange={(e) => setJsonBinKey(e.target.value)}
+                      className="w-full bg-brand-linen/10 border border-brand-outline-variant/45 rounded-sm text-xs px-3 py-2.5 outline-none focus:border-brand-gold text-brand-umber font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-brand-umber block">
+                      معرف الصندوق السحابي / Bin ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 64bfd..."
+                      value={jsonBinId}
+                      onChange={(e) => setJsonBinId(e.target.value)}
+                      className="w-full bg-brand-linen/10 border border-brand-outline-variant/45 rounded-sm text-xs px-3 py-2.5 outline-none focus:border-brand-gold text-brand-umber font-mono"
+                    />
+                    <p className="text-[9px] text-brand-outline/80 leading-relaxed mt-1">
+                      * اتركه فارغاً وسيتم إنشاء صندوق سحابي جديد لمتجرك تلقائياً وتعبئته بالمنتجات الحالية!
+                      <br />
+                      <span className="text-brand-gold font-mono block">
+                        Leave blank to auto-provision a new bin populated with current data.
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="jsonBinEnabled"
+                      checked={jsonBinEnabled}
+                      onChange={(e) => setJsonBinEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-brand-outline-variant text-brand-gold focus:ring-brand-gold"
+                    />
+                    <label htmlFor="jsonBinEnabled" className="text-xs text-brand-umber font-medium cursor-pointer select-none">
+                      تفعيل المزامنة التلقائية السحابية / Enable Cloud Sync
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={jsonBinLoading}
+                    className="w-full bg-brand-umber text-white text-[11px] font-semibold tracking-wider uppercase py-3 rounded-sm hover:bg-brand-gold transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    {jsonBinLoading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>حفظ وتطبيق / Save & Apply Cloud Config</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Actions and Logs */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Connection Status Card */}
+                <div className="bg-white border border-brand-outline-variant/20 rounded-sm p-6 shadow-sm space-y-4">
+                  <h4 className="font-serif text-xs font-semibold text-brand-umber uppercase tracking-wider">
+                    حالة الاتصال السحابي / Cloud Sync Status
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <span className={`relative flex h-3.5 w-3.5`}>
+                      {jsonBinEnabled && jsonBinId ? (
+                        <>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                        </>
+                      ) : (
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-zinc-300"></span>
+                      )}
+                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-brand-umber block">
+                        {jsonBinEnabled && jsonBinId ? "نشط ومتصل / CONNECTED" : "معطل / OFFLINE"}
+                      </span>
+                      <span className="text-[10px] text-brand-outline font-mono block">
+                        {jsonBinId ? `Bin ID: ${jsonBinId}` : "No cloud database linked"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => handleJsonBinSync("push")}
+                      disabled={jsonBinSyncing || !jsonBinId}
+                      className="bg-brand-linen/40 border border-brand-outline-variant/30 text-brand-umber text-[10px] font-semibold tracking-wider uppercase py-2.5 rounded-sm hover:bg-brand-gold hover:text-white transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                    >
+                      {jsonBinSyncing ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CloudUpload className="w-3.5 h-3.5" />
+                      )}
+                      <span>رفع للسحابة / Push</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleJsonBinSync("pull")}
+                      disabled={jsonBinSyncing || !jsonBinId}
+                      className="bg-brand-linen/40 border border-brand-outline-variant/30 text-brand-umber text-[10px] font-semibold tracking-wider uppercase py-2.5 rounded-sm hover:bg-brand-gold hover:text-white transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                    >
+                      {jsonBinSyncing ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CloudDownload className="w-3.5 h-3.5" />
+                      )}
+                      <span>تنزيل / Pull</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Developer Sync Logs Console */}
+                <div className="bg-[#1c1714] border border-[#2e2621] rounded-sm p-5 shadow-inner space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#2e2621] pb-2">
+                    <div className="flex items-center gap-1.5 text-brand-gold">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-gold opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-gold"></span>
+                      </span>
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold">
+                        Synchronizer Logs (سجل العمليات)
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => setJsonBinLogs([])}
+                      className="text-[9px] font-mono text-[#a88a65] hover:text-brand-gold transition-colors"
+                    >
+                      CLEAR
+                    </button>
+                  </div>
+
+                  <div className="h-40 overflow-y-auto font-mono text-[10px] text-[#dac1a3] space-y-1.5 scrollbar-thin scrollbar-thumb-brand-gold text-left leading-relaxed">
+                    {jsonBinLogs.length === 0 ? (
+                      <p className="text-zinc-600 italic">No cloud sync activities logged yet...</p>
+                    ) : (
+                      jsonBinLogs.map((log, i) => (
+                        <p key={i} className="whitespace-pre-wrap">{log}</p>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
